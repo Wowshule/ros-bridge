@@ -18,6 +18,7 @@ import carla
 import numpy
 import transforms3d
 from cv_bridge import CvBridge
+from cv2 import GaussianBlur
 
 import carla_common.transforms as trans
 from ros_compatibility.core import get_ros_version
@@ -76,11 +77,15 @@ class Camera(Sensor):
                                                         '/camera_info', qos_profile=10)
         self.camera_image_publisher = node.new_publisher(Image, self.get_topic_prefix() +
                                                          '/' + 'image', qos_profile=10)
+        self.camera_distor_publisher = node.new_publisher(Image, self.get_topic_prefix() +
+                                                         '/' + 'image_distortioned', qos_profile=10)
 
     def destroy(self):
         super(Camera, self).destroy()
         self.node.destroy_publisher(self.camera_info_publisher)
         self.node.destroy_publisher(self.camera_image_publisher)
+        self.node.destroy_publisher(self.camera_distor_publisher)
+        
 
     def _build_camera_info(self):
         """
@@ -214,6 +219,42 @@ class RgbCamera(Camera):
 
         self.listen()
 
+    def sensor_data_updated(self, carla_camera_data):
+        """
+        Function (override) to transform the received carla camera data
+        into a ROS image message
+        """
+        img_msg, distored_data = self.get_ros_image(carla_camera_data)
+
+        cam_info = self._camera_info
+        cam_info.header = img_msg.header
+        self.camera_info_publisher.publish(cam_info)
+        self.camera_image_publisher.publish(img_msg)
+
+        self.camera_distor_publisher.publish(distored_data)
+
+    
+    def get_ros_image(self, carla_camera_data):
+        """
+        Function to transform the received carla camera data into a ROS image message
+        """
+        if ((carla_camera_data.height != self._camera_info.height) or
+                (carla_camera_data.width != self._camera_info.width)):
+            self.node.logerr(
+                "Camera{} received image not matching configuration".format(self.get_prefix()))
+        image_data_array, encoding, distored_data_array = self.get_carla_image_data_array(
+            carla_camera_data)
+        img_msg = Camera.cv_bridge.cv2_to_imgmsg(image_data_array, encoding=encoding)
+
+        #distortion data
+        distored_data = Camera.cv_bridge.cv2_to_imgmsg(distored_data_array, encoding=encoding)
+        distored_data.header = self.get_msg_header(timestamp=carla_camera_data.timestamp)
+        # the camera data is in respect to the camera's own frame
+        img_msg.header = self.get_msg_header(timestamp=carla_camera_data.timestamp)
+
+        return img_msg, distored_data
+    
+
     def get_carla_image_data_array(self, carla_image):
         """
         Function (override) to convert the carla image to a numpy data array
@@ -230,9 +271,19 @@ class RgbCamera(Camera):
         carla_image_data_array = numpy.ndarray(
             shape=(carla_image.height, carla_image.width, 4),
             dtype=numpy.uint8, buffer=carla_image.raw_data)
+        
+        distored_image = self.distortion_effect(carla_image_data_array)
+        
+        return carla_image_data_array, 'bgra8', distored_image
 
-        return carla_image_data_array, 'bgra8'
+    def distortion_effect(self,carla_image_data_array):
+ 
+        distored_image = GaussianBlur(carla_image_data_array,(15, 15), 0)
 
+        return distored_image
+
+
+        
 
 class DepthCamera(Camera):
 
