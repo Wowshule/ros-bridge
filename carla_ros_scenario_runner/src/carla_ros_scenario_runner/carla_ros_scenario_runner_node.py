@@ -19,6 +19,9 @@ except ImportError:
 import sys
 import threading
 
+# import sys
+# sys.path.append('/home/shule/carla-ros-bridge-L/catkin_ws/src/ros-bridge/ros_compatibility')
+
 import ros_compatibility as roscomp
 from ros_compatibility.node import CompatibleNode
 from ros_compatibility.qos import QoSProfile, DurabilityPolicy

@@ -61,13 +61,13 @@
         }
       ]
     }' -l"/>
-  <include file="$(find carla_ros_scenario_runner)/launch/carla_ros_scenario_runner.launch">
+  <!-- <include file="$(find carla_ros_scenario_runner)/launch/carla_ros_scenario_runner.launch">
     <arg name='host' value='$(arg host)'/>
     <arg name='port' value='$(arg port)'/>
     <arg name="role_name" value="$(arg role_name)"/>
     <arg name="scenario_runner_path" value="$(arg scenario_runner_path)"/>
     <arg name="wait_for_ego" value="True"/>
-  </include>
+  </include> -->
 
   <!-- Rviz visualization-->
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find carla_ad_demo)/config/carla_ad_demo.rviz" required="true" output="screen">
